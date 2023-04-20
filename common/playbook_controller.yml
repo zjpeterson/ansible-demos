@@ -1,0 +1,21 @@
+---
+- name: Configure controller
+  hosts: control
+  connection: local
+  gather_facts: false
+
+  vars:
+    controller_hostname: "{{ ansible_host }}"
+    controller_validate_certs: false
+    controller_username: admin
+
+  vars_files:
+    - "{{ demo_name }}/vars_controller.yml"
+
+  pre_tasks:
+    - name: Get Controller password from file
+      ansible.builtin.set_fact:
+        controller_password: "{{ lookup('file', 'controller_password.txt') }}"
+
+  roles:
+    - infra.controller_configuration.dispatch

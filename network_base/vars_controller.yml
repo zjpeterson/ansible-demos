@@ -1,0 +1,58 @@
+---
+controller_credential_types:
+  - name: Gitlab API
+    kind: cloud
+    inputs:
+      fields:
+        - id: url
+          type: string
+          label: Base URL
+        - id: token
+          type: string
+          label: Access Token
+          secret: true
+      required:
+        - url
+        - token
+    injectors:
+      extra_vars:
+        gitlab_api_url: "{% raw %}{  { url }}{% endraw %}"
+        gitlab_api_token: "{% raw %}{  { token }}{% endraw %}"
+controller_credentials:
+  - name: Gitlab API
+    organization: Red Hat network organization
+    credential_type: Gitlab API
+    inputs:
+      url: # GITLAB_URL_HERE
+      token: "{{ controller_password }}"
+  - name: Gitlab PAT
+    organization: Red Hat network organization
+    credential_type: 	GitLab Personal Access Token
+    inputs:
+      token: "{{ controller_password }}"
+controller_projects:
+  - name: Network Base Demo
+    organization: Red Hat network organization
+    scm_type: git
+    scm_url: # GITLAB_REPO_HERE
+controller_templates:
+  - name: Network Base Demo | Gitlab Webhook
+    organization: Red Hat network organization
+    inventory: Workshop Inventory
+    credentials:
+      - Controller Credential
+      - Gitlab API
+    project: Network Base Demo
+    playbook: network_base/playbook_gitlab_webhook.yml
+    execution_environment: network workshop execution environment
+    webhook_service: gitlab
+    webhook_credential: Gitlab PAT
+  - name: Network Base Demo | Deploy
+    organization: Red Hat network organization
+    inventory: Workshop Inventory
+    credentials:
+      - Workshop Credential
+    project: Network Base Demo
+    playbook: network_base/playbook4_deploy.yml
+    execution_environment: network workshop execution environment
+    ask_limit_on_launch: true

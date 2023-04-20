@@ -1,0 +1,41 @@
+---
+- name: React to generic Gitlab webhook
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  tasks:
+    - name: Get merge change info
+      ansible.builtin.uri:
+        url: >-
+          https://{{ gitlab_api_url }}/api/v4/projects/
+          {{- tower_webhook_payload.project.id }}/merge_requests/
+          {{- tower_webhook_payload.object_attributes.iid }}/changes
+        headers:
+          Authorization: Bearer {{ gitlab_api_token }}
+      register: _gitlab_out
+
+    - name: Determine host list
+      ansible.builtin.set_fact:
+        _host_list: "{{ host_limit | default([]) + [item.split('/')[2]] }}"
+      loop: "{{ _gitlab_out.json.changes | map(attribute='new_path') }}"
+      when: "'inventory/host_vars' in item"
+
+    - name: Launch job
+      ansible.controller.job_launch:
+        name: Deploy network configuration
+        organization: Network
+        job_type: >-
+          {%- if tower_webhook_payload.object_attributes.state == 'merged' -%}
+          run
+          {%- else -%}
+          check
+          {%- endif -%}
+        scm_branch: >-
+          {%- if tower_webhook_payload.object_attributes.state == 'merged' -%}
+          {{ tower_webhook_payload.object_attributes.target_branch }}
+          {%- else -%}
+          {{ tower_webhook_payload.object_attributes.source_branch }}
+          {%- endif -%}
+        limit: "{{ _host_list | join(',') }}"
+      when: _host_list is defined

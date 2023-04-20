@@ -1,0 +1,96 @@
+---
+- name: Establish networking
+  ansible.builtin.import_playbook: playbook_aws_default.yml
+
+- name: Deploy Gitlab
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  module_defaults:
+    group/aws:
+      region: us-east-2
+
+  tasks:
+    - name: Deploy instance
+      amazon.aws.ec2_instance:
+        name: gitlab
+        image_id: ami-0dc6cf9288708f740
+        instance_type: c5.xlarge
+        subnet_id: "{{ _subnet.subnet.id }}"
+        key_name: ansible
+        network:
+          assign_public_ip: true
+        security_group: security-demo
+      register: _instance
+
+    - name: Wait for public assignment
+      amazon.aws.ec2_instance_info:
+        instance_ids: "{{ _instance.instances.0.instance_id }}"
+      register: _instance_info
+      until: _instance_info.instances.0.public_dns_name != ''
+
+    - name: Wait for Gitlab to be up
+      ansible.builtin.uri:
+        url: "http://{{ _instance_info.instances.0.public_dns_name }}"
+      register: _uri
+      until: not _uri.failed
+      delay: 10
+      retries: 60
+      when: _instance.changed
+
+    - name: Turn off SSL validation for git
+      ansible.builtin.command:
+        cmd: git config --global http.sslVerify false
+
+    - name: Add host
+      ansible.builtin.add_host:
+        name: gitlab
+        ansible_host: "{{ _instance_info.instances.0.public_dns_name }}"
+
+- name: Configure Gitlab
+  hosts: gitlab
+  connection: ssh
+  gather_facts: false
+  become: true
+
+  vars:
+    ansible_user: ubuntu
+    ansible_ssh_private_key_file: "{{ playbook_dir }}/ansible.pem"
+
+  tasks:
+    - name: Get Controller password from file
+      ansible.builtin.set_fact:
+        controller_password: "{{ lookup('file', 'controller_password.txt') }}"
+
+    - name: Set root password
+      ansible.builtin.expect:
+        command: gitlab-rake "gitlab:password:reset[root]"
+        responses:
+          Enter password: "{{ controller_password }}"
+          Confirm password: "{{ controller_password }}"
+
+    - name: Enable HTTPS
+      ansible.builtin.lineinfile:
+        path: /etc/gitlab/gitlab.rb
+        line: external_url "https://{{ ansible_host }}"
+        regexp: ^external_url
+      notify: Reconfigure Gitlab
+
+    - name: Create PAT
+      ansible.builtin.command:
+        cmd: >-
+          gitlab-rails runner
+          "token = User.find_by_username('root').personal_access_tokens.create(scopes: ['api', 'write_repository'], name: 'ansible');
+          token.set_token('{{ controller_password }}'); token.save!"
+
+  post_tasks:
+    - name: Display URL
+      ansible.builtin.debug:
+        msg: "Gitlab available at https://{{ ansible_host }}"
+
+  handlers:
+    - name: Reconfigure Gitlab
+      ansible.builtin.command:
+        cmd: gitlab-ctl reconfigure
+      ignore_errors: true

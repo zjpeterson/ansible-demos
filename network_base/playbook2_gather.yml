@@ -1,0 +1,14 @@
+---
+- name: Resource management with network.base
+  hosts: "*1"
+  gather_facts: false
+
+  tasks:
+    - name: Gather some resources
+      ansible.builtin.include_role:
+        name: network.base.resource_manager
+      vars:
+        action: gather
+        resources:
+          - interfaces
+          - ntp_global

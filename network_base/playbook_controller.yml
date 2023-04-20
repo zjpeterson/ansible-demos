@@ -1,0 +1,13 @@
+---
+- name: Get Gitlab URL
+  hosts: control
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Get Gitlab URL
+      ansible.builtin.set_fact:
+        gitlab_url: "{{ lookup('file', '../common/gitlab_url.txt') }}"
+
+- name: Generic provisioner
+  ansible.builtin.import_playbook: ../common/playbook_controller.yml

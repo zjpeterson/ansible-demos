@@ -1,3 +1,4 @@
 *.log
 *.pem
 controller_password.txt
+common/gitlab_url.txt

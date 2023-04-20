@@ -23,7 +23,7 @@ controller_credentials:
     organization: Red Hat network organization
     credential_type: Gitlab API
     inputs:
-      url: # GITLAB_URL_HERE
+      url: "{{ gitlab_url }}"
       token: "{{ controller_password }}"
   - name: Gitlab PAT
     organization: Red Hat network organization
@@ -34,7 +34,7 @@ controller_projects:
   - name: Network Base Demo
     organization: Red Hat network organization
     scm_type: git
-    scm_url: # GITLAB_REPO_HERE
+    scm_url: https://oauth2:{{ controller_password }}@{{ gitlab_url }}/root/network-base.git
 controller_templates:
   - name: Network Base Demo | Gitlab Webhook
     organization: Red Hat network organization

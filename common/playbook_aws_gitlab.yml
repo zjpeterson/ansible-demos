@@ -12,6 +12,10 @@
       region: us-east-2
 
   tasks:
+    - name: Get Controller password from file
+      ansible.builtin.set_fact:
+        controller_password: "{{ lookup('file', '../controller_password.txt') }}"
+
     - name: Deploy instance
       amazon.aws.ec2_instance:
         name: gitlab
@@ -43,6 +47,17 @@
       ansible.builtin.command:
         cmd: git config --global http.sslVerify false
 
+    - name: Create Git remote
+      ansible.builtin.command:
+        cmd: >-
+          git remote add gitlab
+          https://oauth2:{{ controller_password }}@{{ _instance_info.instances.0.public_dns_name }}/root/network-base.git
+
+    - name: Dump Gitlab URL to file
+      ansible.builtin.copy:
+        content: "{{ _instance_info.instances.0.public_dns_name }}"
+        dest: gitlab_url.txt
+
     - name: Add host
       ansible.builtin.add_host:
         name: gitlab
@@ -61,7 +76,7 @@
   tasks:
     - name: Get Controller password from file
       ansible.builtin.set_fact:
-        controller_password: "{{ lookup('file', 'controller_password.txt') }}"
+        controller_password: "{{ lookup('file', '../controller_password.txt') }}"
 
     - name: Set root password
       ansible.builtin.expect:

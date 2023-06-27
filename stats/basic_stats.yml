@@ -1,0 +1,11 @@
+---
+- name: Set a statistic
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Set a stat
+      ansible.builtin.set_stats:
+        data:
+          my_info: hello
